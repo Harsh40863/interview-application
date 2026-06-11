@@ -23,7 +23,8 @@ async def start_interview(request: InterviewStartRequest):
 @router.post("/answer")
 async def submit_answer(request: AnswerRequest):
     try:
-        evaluation = evaluate_answer(request.question, request.answer)
+        session = await get_session(request.session_id)  # ADD THIS
+        evaluation = evaluate_answer(session["question"], request.answer)  # use DB question
         return evaluation
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to evaluate answer: {str(e)}")
