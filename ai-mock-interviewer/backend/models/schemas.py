@@ -8,6 +8,5 @@ class InterviewStartRequest(BaseModel):
 
 
 class AnswerRequest(BaseModel):
-    question: str
     answer: str
     session_id: str
