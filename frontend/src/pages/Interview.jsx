@@ -42,17 +42,13 @@ function Interview() {
       setError("Please enter your answer before submitting.");
       return;
     }
-
     setLoading(true);
     setError("");
     try {
       const result = await submitAnswer(sessionId, answer);
-
       if (result.completed) {
-        // All 5 questions answered — go to results
         navigate("/results", { state: { session_id: sessionId } });
       } else {
-        // More questions remain — update state in place
         setQuestion(result.next_question);
         setCurrentIndex(result.current_index);
         setTotalQuestions(result.total_questions);
@@ -65,76 +61,89 @@ function Interview() {
     }
   };
 
-  if (!sessionId) {
-    return null;
-  }
+  if (!sessionId) return null;
 
   if (fetching) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-500 text-lg">Loading question...</p>
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-3">
+        <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+        <p className="text-gray-500">Loading your first question…</p>
       </div>
     );
   }
 
   const progressPercent = Math.round((currentIndex / totalQuestions) * 100);
+  const isLastQuestion = currentIndex + 1 === totalQuestions;
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-10">
       <div className="max-w-2xl mx-auto">
-        <div className="flex items-center justify-between mb-2">
-          <h1 className="text-3xl font-bold text-gray-900">Interview</h1>
-          <span className="text-sm font-medium text-gray-500">
-            Question {currentIndex + 1} of {totalQuestions}
+
+        {/* Header row */}
+        <div className="flex items-center justify-between mb-3">
+          <h1 className="text-2xl font-bold text-gray-900">Mock Interview</h1>
+          <span className="text-sm font-semibold text-gray-500 bg-white border border-gray-200 px-3 py-1 rounded-full">
+            {currentIndex + 1} / {totalQuestions}
           </span>
         </div>
 
         {/* Progress bar */}
-        <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
+        <div className="w-full bg-gray-200 rounded-full h-2 mb-8 overflow-hidden">
           <div
-            className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+            className="bg-blue-600 h-2 rounded-full transition-all duration-700 ease-out"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-sm font-medium text-gray-500 mb-2">Question</h2>
-          <p className="text-lg text-gray-900">{question}</p>
+        {/* Question card */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-7 mb-6">
+          <p className="text-xs font-semibold text-blue-600 uppercase tracking-widest mb-3">
+            Question {currentIndex + 1}
+          </p>
+          <p className="text-lg font-medium text-gray-900 leading-relaxed">{question}</p>
         </div>
 
-        <div className="mb-6">
-          <label htmlFor="answer" className="block text-sm font-medium text-gray-700 mb-2">
+        {/* Answer area */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-7 mb-6">
+          <label htmlFor="answer" className="block text-sm font-semibold text-gray-700 mb-3">
             Your Answer
           </label>
           <textarea
             id="answer"
             value={answer}
             onChange={(e) => setAnswer(e.target.value)}
-            rows={8}
-            placeholder="Type your answer here..."
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y"
+            rows={9}
+            disabled={loading}
+            placeholder="Type your answer here… explain your approach, time complexity, and how you would solve it."
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white outline-none transition resize-y text-gray-900 placeholder-gray-400 disabled:opacity-60"
           />
-          <p className="mt-2 text-sm text-gray-400 italic">
-            💡 Answer in text — explain your approach, time complexity, and how you would solve it.
+          <p className="mt-2 text-xs text-gray-400">
+            💡 Be specific — explain trade-offs, complexity, and edge cases where relevant.
           </p>
         </div>
 
         {error && (
-          <p className="text-red-600 text-sm mb-4">{error}</p>
+          <div className="mb-5 flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+            <span>⚠️</span> {error}
+          </div>
         )}
 
         <button
+          id="submit-answer-btn"
           onClick={handleSubmit}
-          disabled={loading}
-          className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={loading || !answer.trim()}
+          className="w-full py-3.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
-          {loading
-            ? currentIndex + 1 === totalQuestions
-              ? "Finishing..."
-              : "Submitting..."
-            : currentIndex + 1 === totalQuestions
-            ? "Finish Interview"
-            : "Next Question →"}
+          {loading ? (
+            <>
+              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              Evaluating your answer…
+            </>
+          ) : isLastQuestion ? (
+            "Finish Interview ✓"
+          ) : (
+            "Next Question →"
+          )}
         </button>
       </div>
     </div>

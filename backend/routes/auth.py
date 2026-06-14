@@ -34,7 +34,7 @@ async def register(request: UserRegister):
     })
 
     user_id = str(result.inserted_id)
-    access_token = create_access_token({"user_id": user_id, "email": request.email})
+    access_token = create_access_token({"user_id": user_id, "email": request.email, "name": request.name})
     return TokenResponse(access_token=access_token, token_type="bearer")
 
 
@@ -54,5 +54,5 @@ async def login(request: UserLogin):
         )
 
     user_id = str(user["_id"])
-    access_token = create_access_token({"user_id": user_id, "email": user["email"]})
+    access_token = create_access_token({"user_id": user_id, "email": user["email"], "name": user.get("name", "")})
     return TokenResponse(access_token=access_token, token_type="bearer")
