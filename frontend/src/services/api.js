@@ -6,6 +6,45 @@ const api = axios.create({
   timeout: 30000,
 });
 
+// Attach JWT token from localStorage to every outgoing request
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// ── Auth ────────────────────────────────────────────────────────────────────
+
+export const register = async (name, email, password) => {
+  try {
+    const response = await api.post("/auth/register", { name, email, password });
+    return response.data;
+  } catch (error) {
+    const message =
+      error.response?.data?.detail ||
+      error.message ||
+      "Registration failed";
+    throw new Error(message);
+  }
+};
+
+export const login = async (email, password) => {
+  try {
+    const response = await api.post("/auth/login", { email, password });
+    return response.data;
+  } catch (error) {
+    const message =
+      error.response?.data?.detail ||
+      error.message ||
+      "Login failed";
+    throw new Error(message);
+  }
+};
+
+// ── Interview ────────────────────────────────────────────────────────────────
+
 export const getQuestion = async (sessionId) => {
   try {
     const response = await api.get(`/interview/question/${sessionId}`);
@@ -57,6 +96,19 @@ export const getResults = async (sessionId) => {
       error.response?.data?.detail ||
       error.message ||
       "Failed to fetch results";
+    throw new Error(message);
+  }
+};
+
+export const getHistory = async () => {
+  try {
+    const response = await api.get("/interview/history");
+    return response.data;
+  } catch (error) {
+    const message =
+      error.response?.data?.detail ||
+      error.message ||
+      "Failed to fetch interview history";
     throw new Error(message);
   }
 };

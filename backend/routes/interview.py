@@ -2,10 +2,11 @@
 import asyncio
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from models.schemas import AnswerRequest, InterviewStartRequest
-from services.db_service import get_session, get_session_results, save_answer, save_session
+from services.auth_service import get_current_user
+from services.db_service import get_session, get_session_results, get_user_sessions, save_answer, save_session
 from services.llm_service import evaluate_answer, generate_question
 from services.vector_store import add_to_index, get_weak_topics
 
@@ -15,26 +16,31 @@ TOTAL_QUESTIONS = 5
 
 
 @router.get("/question/{session_id}")
-async def get_question(session_id: str):
+async def get_question(session_id: str, current_user: dict = Depends(get_current_user)):
     """Return the current question and progress info for a session."""
     try:
         session = await get_session(session_id)
+        # Ensure the session belongs to the requesting user
+        if session.get("user_id") != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Access denied to this session")
         return {
             "question": session["current_question"],
             "current_index": session["current_index"],
             "total_questions": session["total_questions"],
         }
+    except HTTPException:
+        raise
     except RuntimeError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.post("/start")
-async def start_interview(request: InterviewStartRequest):
+async def start_interview(request: InterviewStartRequest, current_user: dict = Depends(get_current_user)):
     """Start a new interview session, generate the first question, and persist to DB."""
     try:
         question = await asyncio.to_thread(generate_question, request.topic, request.difficulty)
         session_id = str(uuid4())
-        await save_session(session_id, question, request.topic, request.difficulty)
+        await save_session(session_id, question, request.topic, request.difficulty, user_id=current_user["id"])
         return {
             "session_id": session_id,
             "question": question,
@@ -46,13 +52,18 @@ async def start_interview(request: InterviewStartRequest):
 
 
 @router.post("/answer")
-async def submit_answer(request: AnswerRequest):
+async def submit_answer(request: AnswerRequest, current_user: dict = Depends(get_current_user)):
     """
     Evaluate the submitted answer, persist it to MongoDB and FAISS, then either
     return the next context-aware question or signal session completion.
     """
     try:
         session = await get_session(request.session_id)
+
+        # Ensure the session belongs to the requesting user
+        if session.get("user_id") != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Access denied to this session")
+
         current_question = session["current_question"]
         topic = session["topic"]
         difficulty = session["difficulty"]
@@ -140,16 +151,33 @@ async def submit_answer(request: AnswerRequest):
             "current_index": new_index,
             "total_questions": session["total_questions"],
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to evaluate answer: {str(e)}")
 
 
 
 @router.get("/results/{session_id}")
-async def get_results(session_id: str):
+async def get_results(session_id: str, current_user: dict = Depends(get_current_user)):
     """Return the full session with all questions, answers, scores, and feedback."""
     try:
         session = await get_session_results(session_id)
+        # Ensure the session belongs to the requesting user
+        if session.get("user_id") != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Access denied to this session")
         return session
+    except HTTPException:
+        raise
     except RuntimeError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/history")
+async def get_history(current_user: dict = Depends(get_current_user)):
+    """Return all interview sessions for the authenticated user, newest first."""
+    try:
+        sessions = await get_user_sessions(current_user["id"])
+        return sessions
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch history: {str(e)}")

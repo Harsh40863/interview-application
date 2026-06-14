@@ -10,3 +10,27 @@ class InterviewStartRequest(BaseModel):
 class AnswerRequest(BaseModel):
     answer: str
     session_id: str
+
+
+# ── Authentication schemas ──────────────────────────────────────────────────
+
+class UserRegister(BaseModel):
+    email: str
+    password: str
+    name: str
+
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    name: str

@@ -15,7 +15,7 @@ client: Optional[AsyncIOMotorClient] = None
 db = None
 
 
-async def save_session(session_id: str, question: str, topic: str, difficulty: str):
+async def save_session(session_id: str, question: str, topic: str, difficulty: str, user_id: Optional[str] = None):
     """Save a new interview session to the database with multi-question structure."""
     if db is None:
         raise RuntimeError("Database not connected")
@@ -28,6 +28,7 @@ async def save_session(session_id: str, question: str, topic: str, difficulty: s
         "current_index": 0,
         "status": "in_progress",
         "total_questions": 5,
+        "user_id": user_id,
         "created_at": datetime.utcnow(),
     })
 
@@ -95,6 +96,26 @@ async def get_session_results(session_id: str) -> dict:
         raise RuntimeError(f"Session {session_id} not found")
     session.pop("_id", None)
     return session
+
+
+async def get_user_sessions(user_id: str) -> list:
+    """Fetch all interview sessions belonging to a user, newest first."""
+    if db is None:
+        raise RuntimeError("Database not connected")
+    cursor = db.sessions.find({"user_id": user_id}).sort("created_at", -1)
+    sessions = []
+    async for session in cursor:
+        session.pop("_id", None)
+        # Calculate average score from answered questions
+        questions = session.get("questions", [])
+        if questions:
+            scores = [q.get("score", 0) for q in questions if isinstance(q.get("score"), (int, float))]
+            session["average_score"] = round(sum(scores) / len(scores), 1) if scores else 0
+        else:
+            session["average_score"] = 0
+        sessions.append(session)
+    return sessions
+
 
 
 async def connect_to_mongodb():
