@@ -13,9 +13,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post("/register", response_model=TokenResponse)
 async def register(request: UserRegister):
     """Register a new user. Returns a JWT access token on success."""
-    db = db_service.db
-    if db is None:
-        raise HTTPException(status_code=500, detail="Database not connected")
+    db = await db_service.get_db()
 
     # Check for duplicate email
     existing = await db.users.find_one({"email": request.email})
@@ -41,9 +39,7 @@ async def register(request: UserRegister):
 @router.post("/login", response_model=TokenResponse)
 async def login(request: UserLogin):
     """Authenticate an existing user. Returns a JWT access token on success."""
-    db = db_service.db
-    if db is None:
-        raise HTTPException(status_code=500, detail="Database not connected")
+    db = await db_service.get_db()
 
     user = await db.users.find_one({"email": request.email})
     if not user or not verify_password(request.password, user["password"]):

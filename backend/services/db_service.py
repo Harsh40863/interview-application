@@ -15,11 +15,18 @@ client: Optional[AsyncIOMotorClient] = None
 db = None
 
 
+async def get_db():
+    """Lazily return database connection, connecting if not already connected."""
+    global db
+    if db is None:
+        await connect_to_mongodb()
+    return db
+
+
 async def save_session(session_id: str, question: str, topic: str, difficulty: str, user_id: Optional[str] = None):
     """Save a new interview session to the database with multi-question structure."""
-    if db is None:
-        raise RuntimeError("Database not connected")
-    await db.sessions.insert_one({
+    database = await get_db()
+    await database.sessions.insert_one({
         "session_id": session_id,
         "topic": topic,
         "difficulty": difficulty,
@@ -35,9 +42,8 @@ async def save_session(session_id: str, question: str, topic: str, difficulty: s
 
 async def get_session(session_id: str) -> dict:
     """Retrieve an interview session from the database by session ID."""
-    if db is None:
-        raise RuntimeError("Database not connected")
-    session = await db.sessions.find_one({"session_id": session_id})
+    database = await get_db()
+    session = await database.sessions.find_one({"session_id": session_id})
     if not session:
         raise RuntimeError(f"Session {session_id} not found")
     session.pop("_id", None)
@@ -58,8 +64,7 @@ async def save_answer(
     update status to 'completed' if all questions are answered, and set the next
     current_question if the session is still in progress.
     """
-    if db is None:
-        raise RuntimeError("Database not connected")
+    database = await get_db()
 
     entry = {
         "question": question,
@@ -84,14 +89,13 @@ async def save_answer(
     else:
         update["$set"] = {"current_question": next_question}
 
-    await db.sessions.update_one({"session_id": session_id}, update)
+    await database.sessions.update_one({"session_id": session_id}, update)
 
 
 async def get_session_results(session_id: str) -> dict:
     """Fetch the full session document including all answered questions."""
-    if db is None:
-        raise RuntimeError("Database not connected")
-    session = await db.sessions.find_one({"session_id": session_id})
+    database = await get_db()
+    session = await database.sessions.find_one({"session_id": session_id})
     if not session:
         raise RuntimeError(f"Session {session_id} not found")
     session.pop("_id", None)
@@ -100,9 +104,8 @@ async def get_session_results(session_id: str) -> dict:
 
 async def get_user_sessions(user_id: str) -> list:
     """Fetch all interview sessions belonging to a user, newest first."""
-    if db is None:
-        raise RuntimeError("Database not connected")
-    cursor = db.sessions.find({"user_id": user_id}).sort("created_at", -1)
+    database = await get_db()
+    cursor = database.sessions.find({"user_id": user_id}).sort("created_at", -1)
     sessions = []
     async for session in cursor:
         session.pop("_id", None)
@@ -115,7 +118,6 @@ async def get_user_sessions(user_id: str) -> list:
             session["average_score"] = 0
         sessions.append(session)
     return sessions
-
 
 
 async def connect_to_mongodb():
@@ -134,6 +136,7 @@ async def connect_to_mongodb():
 
     print(f"Connected to MongoDB database: {db.name}")
     return db
+
 
 
 async def close_mongodb_connection():
