@@ -25,17 +25,18 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="AI Mock Interviewer", lifespan=lifespan)
 
-# Build allowed origins list — always include localhost, optionally add FRONTEND_URL
 _origins = [
     "http://localhost:5173",
     "http://localhost:5174",
+    "https://ai-mock-interviewer-3x1.pages.dev",
 ]
 if FRONTEND_URL:
     _origins.append(FRONTEND_URL)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_origins,
+    allow_origin_regex=r"https://.*\.pages\.dev",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
